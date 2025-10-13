@@ -4,30 +4,34 @@ library(ggplot2)
 
 # Functions --------------------------------------------------------------
 
-physical_control <- function(t) {
+theta <- function(t) {
   y <- sin(((2 * pi * t) / T_period) - (pi / 2))
 
   y > 0
 }
 
 growth_rate <- function(t, vars) {
-  r * vars$theta * (vars$nutrients**2 / (alpha**2 + vars$nutrients**2))
+  r * theta(t) * (vars$nutrients**2 / (alpha**2 + vars$nutrients**2))
 }
 
 grazing <- function(t, vars) {
-  g * vars$theta * (1 - exp(-I * vars$phytoplankton**2))
+  g * theta(t) * (1 - exp(-I * vars$phyto**2))
 }
 
-nutrients <- function(t) {
+nutrients <- function(t, vars) {
+  -vars$R * vars$phyto
+}
+
+phyto <- function(t, vars) {
   0.001
 }
 
-phytoplankton <- function(t) {
+zoo <- function(t, vars) {
   0.001
 }
 
-zooplankton <- function(t) {
-  0.001
+L_ZN <- function(t, vars) {
+  theta(t) * sigma + physical_control(-t) * gamma
 }
 
 # Model parameters -------------------------------------------------------
@@ -54,14 +58,14 @@ vars <- data.frame(
   "theta" = zeros,
   "R" = zeros,
   "nutrients" = zeros,
-  "zooplankton" = zeros,
-  "phytoplankton" = zeros,
+  "zoo" = zeros,
+  "phyto" = zeros,
   "detritus" = zeros
 )
 
 vars$nutrients[1] <- 0
-vars$zooplankton[1] <- 1
-vars$phytoplankton[1] <- 1
+vars$zoo[1] <- 1
+vars$phyto[1] <- 1
 vars$detritus[1] <- 1
 
 # Main model loop --------------------------------------------------------
@@ -70,17 +74,17 @@ for (i in 2:length(time_seq)) {
   t <- vars$time[i]
   vars_before <- vars[i - 1, ]
 
-  vars$theta[i] <- physical_control(t)
+  vars$theta[i] <- theta(t)
   vars$R[i] <- growth_rate(t, vars_before)
   vars$G[i] <- grazing(t, vars_before)
 
-  dNdt <- nutrients(t)
-  dZdt <- zooplankton(t)
-  dPdt <- phytoplankton(t)
+  dNdt <- nutrients(t, vars_before)
+  dZdt <- zoo(t, vars_before)
+  dPdt <- phyto(t, vars_before)
 
-  vars$nutrients[i] <- vars$nutrients[i - 1] + nutrients(t) * dt
-  vars$zooplankton[i] <- vars$zooplankton[i - 1] + zooplankton(t) * dt
-  vars$phytoplankton[i] <- vars$phytoplankton[i - 1] + phytoplankton(t) * dt
+  vars$nutrients[i] <- vars$nutrients[i - 1] + dNdt * dt
+  vars$zoo[i] <- vars$zoo[i - 1] + dZdt * dt
+  vars$phyto[i] <- vars$phyto[i - 1] + dPdt * dt
   # vars$detritus[i] <- vars$detritus[i - 1] + detritus(t) * dt
 }
 
