@@ -21,19 +21,21 @@ dt <- 1
 T_period <- 365
 
 # Initialize tracked variables -------------------------------------------
+zeros <- rep(0, length(time_seq))
 
-time_seq <- seq(t_0, t_f, dt)
-
-theta <- rep(0, length(time_seq))
+vars <- data.frame(
+  "time" = seq(t_0, t_f, dt),
+  "theta" = zeros
+)
 
 # Main model loop --------------------------------------------------------
 
 for (i in 1:length(time_seq)) {
-  t <- time_seq[i]
+  t <- vars$time[i]
 
-  theta[i] <- physical_control(t)
+  vars$theta[i] <- physical_control(t)
 }
 
 # Plot results -----------------------------------------------------------
 
-plot(time_seq, theta, type = "l")
+plot(vars$time, vars$theta, type = "l")
