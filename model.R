@@ -49,6 +49,10 @@ detritus <- function(t, vars) {
   L_D * vars$detritus - A_mix(t) * (vars$detritus - vars$nutrients) + SD_ext
 }
 
+compute_state_vars <- function(t, vars) {
+  c(nutrients(t, vars), zoo(t, vars), phyto(t, vars), detritus(t, vars))
+}
+
 L_PN <- function(t) {
   theta(y(t)) * eta + theta(-y(t)) * lambda
 }
@@ -69,9 +73,17 @@ L_ZD <- function(t, vars) {
 
 t_0 <- 0
 t_f <- 365
-dt <- 0.05
+dt <- 0.1
 
 time_seq <- seq(t_0, t_f, dt)
+
+pb <- txtProgressBar(
+  min = 0,
+  max = length(time_seq),
+  style = 3,
+  width = 50,
+  char = "="
+)
 
 # Constants --------------------------------------------------------------
 
@@ -142,10 +154,17 @@ for (i in 2:length(time_seq)) {
   vars$L_Z[i] <- vars$L_ZN[i] + vars$L_ZD[i]
   vars$L_P[i] <- vars$L_PN[i] + vars$L_PD[i]
 
-  dNdt <- nutrients(t, vars_before)
-  dZdt <- zoo(t, vars_before)
-  dPdt <- phyto(t, vars_before)
-  dDdt <- detritus(t, vars_before)
+  K1 <- compute_state_vars(t, vars_before)
+  K2 <- compute_state_vars(t + dt / 2, vars_before + dt / 2 * K1)
+  K3 <- compute_state_vars(t + dt / 2, vars_before + dt / 2 * K2)
+  K4 <- compute_state_vars(t + dt, vars_before + dt * K3)
+
+  K <- compute_state_vars(t, vars_before) + (dt / 6) * (K1 + 2 * K2 + 2 * K3 + K4)
+
+  dNdt <- K[1]
+  dZdt <- K[2]
+  dPdt <- K[3]
+  dDdt <- K[4]
 
   # dNdt <- 0
   # dZdt <- 0
@@ -156,7 +175,11 @@ for (i in 2:length(time_seq)) {
   vars$zoo[i] <- max(vars$zoo[i - 1] + dZdt * dt, 0)
   vars$phyto[i] <- max(vars$phyto[i - 1] + dPdt * dt, 0)
   vars$detritus[i] <- max(vars$detritus[i - 1] + dDdt * dt, 0)
+
+  setTxtProgressBar(pb, i)
 }
+
+close(pb)
 
 # Plot results -----------------------------------------------------------
 
