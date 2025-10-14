@@ -1,29 +1,33 @@
 # Libraries --------------------------------------------------------------
 
+library(dplyr)
 library(ggplot2)
+library(tidyr)
 
 # Functions --------------------------------------------------------------
 
-theta <- function(t) {
-  y <- sin(((2 * pi * t) / T_period) - (pi / 2))
+y <- function(t) {
+  sin(((2 * pi * t) / T_period) - (pi / 2))
+}
 
+theta <- function(y) {
   y > 0
 }
 
 A_mix <- function(t) {
-  theta(-t) * a
+  theta(-y(t)) * a
 }
 
 growth_rate <- function(t, vars) {
-  r * theta(t) * (vars$nutrients**2 / (alpha**2 + vars$nutrients**2))
+  r * theta(y(t)) * (vars$nutrients**2 / (alpha**2 + vars$nutrients**2))
 }
 
 grazing <- function(t, vars) {
-  g * theta(t) * (1 - exp(-I * vars$phyto**2))
+  g * theta(y(t)) * (1 - exp(-I * vars$phyto**2))
 }
 
 nutrients <- function(t, vars) {
-  -vars$R * vars$phyto *
+  -vars$R * vars$phyto +
     vars$L_ZN * (vars$zoo - Z_0) +
     vars$L_PN * (vars$phyto - P_0) +
     L_D * vars$detritus +
@@ -31,41 +35,41 @@ nutrients <- function(t, vars) {
     SN_ext
 }
 
-phyto <- function(t, vars) {
-  vars$R * vars$phyto - vars$L_P * (vars$phyto - P_0) - vars$G * vars$zoo
-}
-
 zoo <- function(t, vars) {
   vars$G * vars$zoo - vars$L_Z * (vars$zoo - Z_0)
 }
 
+phyto <- function(t, vars) {
+  vars$R * vars$phyto - vars$L_P * (vars$phyto - P_0) - vars$G * vars$zoo
+}
+
 detritus <- function(t, vars) {
   vars$L_ZD * (vars$zoo - Z_0) +
-    vars$L_PD * (vars$phyto - P_0) -
-    L_D * vars$detritus - A_mix(t) * (vars$detritus - vars$nutrients) + SD_ext
+  vars$L_PD * (vars$phyto - P_0) -
+  L_D * vars$detritus - A_mix(t) * (vars$detritus - vars$nutrients) + SD_ext
 }
 
 L_PN <- function(t) {
-  theta(t) * eta + theta(-t) * lambda
+  theta(y(t)) * eta + theta(-y(t)) * lambda
 }
 
 L_PD <- function(t) {
-  theta(t) * delta + theta(-t) * lambda
+  theta(y(t)) * delta + theta(-y(t)) * lambda
 }
 
 L_ZN <- function(t, vars) {
-  theta(t) * nu + theta(-t) * gamma
+  theta(y(t)) * nu + theta(-y(t)) * gamma
 }
 
 L_ZD <- function(t, vars) {
-  theta(t) * sigma + theta(-t) * gamma
+  theta(y(t)) * sigma + theta(-y(t)) * gamma
 }
 
 # Model parameters -------------------------------------------------------
 
 t_0 <- 0
 t_f <- 365
-dt <- 1
+dt <- 0.05
 
 time_seq <- seq(t_0, t_f, dt)
 
@@ -98,6 +102,7 @@ zeros <- rep(0, length(time_seq))
 
 vars <- data.frame(
   "time" = seq(t_0, t_f, dt),
+  "y" = zeros,
   "theta" = zeros,
   "R" = zeros,
   "G" = zeros,
@@ -114,10 +119,10 @@ vars <- data.frame(
   "detritus" = zeros
 )
 
-vars$nutrients[1] <- 1
+vars$nutrients[1] <- 0.99
 vars$zoo[1] <- Z_0
 vars$phyto[1] <- P_0
-vars$detritus[1] <- 1
+vars$detritus[1] <- 0.99
 
 # Main model loop --------------------------------------------------------
 
@@ -125,7 +130,7 @@ for (i in 2:length(time_seq)) {
   t <- vars$time[i]
   vars_before <- vars[i - 1, ]
 
-  vars$theta[i] <- theta(t)
+  vars$theta[i] <- theta(y(t))
   vars$R[i] <- growth_rate(t, vars_before)
   vars$G[i] <- grazing(t, vars_before)
 
@@ -142,26 +147,41 @@ for (i in 2:length(time_seq)) {
   dPdt <- phyto(t, vars_before)
   dDdt <- detritus(t, vars_before)
 
-  vars$nutrients[i] <- vars$nutrients[i - 1] + dNdt * dt
-  vars$zoo[i] <- vars$zoo[i - 1] + dZdt * dt
-  vars$phyto[i] <- vars$phyto[i - 1] + dPdt * dt
-  vars$detritus[i] <- vars$detritus[i - 1] + dDdt * dt
+  # dNdt <- 0
+  # dZdt <- 0
+  # dPdt <- 0
+  # dDdt <- 0
+
+  vars$nutrients[i] <- max(vars$nutrients[i - 1] + dNdt * dt, 0)
+  vars$zoo[i] <- max(vars$zoo[i - 1] + dZdt * dt, 0)
+  vars$phyto[i] <- max(vars$phyto[i - 1] + dPdt * dt, 0)
+  vars$detritus[i] <- max(vars$detritus[i - 1] + dDdt * dt, 0)
 }
 
 # Plot results -----------------------------------------------------------
 
-par(mfrow = c(3, 2))
+# par(mfrow = c(3, 2))
 
-plot(vars$time, vars$theta, type = "l", col = "black")
-plot(vars$time, vars$R, type = "l", col = "black")
-plot(vars$time, vars$G, type = "l", col = "black")
+# plot(vars$time, vars$theta, type = "l", col = "black")
+# plot(vars$time, vars$R, type = "l", col = "black")
+# plot(vars$time, vars$G, type = "l", col = "black")
 
-plot(vars$time, vars$nutrients, type = "l", col = "red", ylim = c(0, 2))
-lines(vars$time, vars$zoo, type = "l", col = "blue")
-lines(vars$time, vars$phyto, type = "l", col = "green")
-lines(vars$time, vars$detritus, type = "l", col = "yellow")
+# plot(vars$time, vars$nutrients, type = "l", col = "red", ylim = c(0, 2))
+# plot(vars$time, vars$zoo, type = "l", col = "blue")
+# plot(vars$time, vars$phyto, type = "l", col = "green")
+# plot(vars$time, vars$detritus, type = "l", col = "yellow")
 
-plot(vars$time, vars$L_PN, type = "l")
-lines(vars$time, vars$L_PD, type = "l")
-lines(vars$time, vars$L_ZN, type = "l")
-lines(vars$time, vars$L_ZD, type = "l")
+# plot(vars$time, vars$L_Z, type = "l")
+# plot(vars$time, vars$L_P, type = "l")
+
+vars |>
+  select(time, nutrients, zoo, phyto, detritus) |>
+  pivot_longer(nutrients:detritus, names_to = "variable", values_to = "value") |>
+  ggplot(aes(x = time, y = value, color = variable)) +
+  geom_line() +
+  theme_bw()
+
+# plot(vars$time, vars$L_PN, type = "l")
+# lines(vars$time, vars$L_PD, type = "l")
+# lines(vars$time, vars$L_ZN, type = "l")
+# lines(vars$time, vars$L_ZD, type = "l")
