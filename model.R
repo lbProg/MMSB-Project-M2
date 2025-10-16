@@ -73,7 +73,7 @@ L_ZD <- function(t, vars) {
 
 t_0 <- 0
 t_f <- 365
-dt <- 0.1
+dt <- 0.05
 
 time_seq <- seq(t_0, t_f, dt)
 
@@ -154,12 +154,14 @@ for (i in 2:length(time_seq)) {
   vars$L_Z[i] <- vars$L_ZN[i] + vars$L_ZD[i]
   vars$L_P[i] <- vars$L_PN[i] + vars$L_PD[i]
 
-  K1 <- compute_state_vars(t, vars_before)
-  K2 <- compute_state_vars(t + dt / 2, vars_before + dt / 2 * K1)
-  K3 <- compute_state_vars(t + dt / 2, vars_before + dt / 2 * K2)
-  K4 <- compute_state_vars(t + dt, vars_before + dt * K3)
+  # K1 <- compute_state_vars(t, vars_before)
+  # K2 <- compute_state_vars(t + dt / 2, vars_before + dt / 2 * K1)
+  # K3 <- compute_state_vars(t + dt / 2, vars_before + dt / 2 * K2)
+  # K4 <- compute_state_vars(t + dt, vars_before + dt * K3)
 
-  K <- compute_state_vars(t, vars_before) + (dt / 6) * (K1 + 2 * K2 + 2 * K3 + K4)
+  # K <- compute_state_vars(t, vars_before) + (dt / 6) * (K1 + 2 * K2 + 2 * K3 + K4)
+
+  K <- compute_state_vars(t, vars_before)
 
   dNdt <- K[1]
   dZdt <- K[2]
